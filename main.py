@@ -93,18 +93,26 @@ def check(tool: ToolCall):
 
     # ---------------- WRITE ----------------
     elif tool.tool == "write_file":
-        if not tool.path:
-            return block("Missing path.")
+    if not tool.path:
+        return block("Missing path.")
 
-        try:
-            target = normalize_path(tool.path)
+    try:
+        p = tool.path.replace("$HOME", str(HOME)).replace("~", str(HOME))
 
-            target.relative_to(OUTBOX)
+        target = Path(p)
 
+        if not target.is_absolute():
+            target = OUTBOX / target
+
+        target = target.resolve()
+
+        if target == OUTBOX or OUTBOX in target.parents:
             return allow("Write inside outbox permitted.")
 
-        except Exception:
-            return block("Writes allowed only inside /data/agent/outbox/")
+        return block("Writes allowed only inside /data/agent/outbox/")
+
+    except Exception:
+        return block("Invalid path.")
 
     # ---------------- HTTP ----------------
     elif tool.tool == "http_request":
