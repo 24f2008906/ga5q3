@@ -28,11 +28,17 @@ class ToolCall(BaseModel):
 
 
 def allow(reason="Allowed"):
-    return {"decision": "allow", "reason": reason}
+    return {
+        "decision": "allow",
+        "reason": reason
+    }
 
 
 def block(reason="Blocked by policy"):
-    return {"decision": "block", "reason": reason}
+    return {
+        "decision": "block",
+        "reason": reason
+    }
 
 
 def normalize_path(path_str: str):
@@ -44,7 +50,7 @@ def normalize_path(path_str: str):
     if not p.is_absolute():
         p = WORKSPACE / p
 
-    return p.resolve()
+    return p.resolve(strict=False)
 
 
 def contains_secret(command: str):
@@ -74,6 +80,7 @@ def contains_secret(command: str):
             decoded = base64.b64decode(token).decode(errors="ignore")
             decoded = decoded.replace("$HOME", str(HOME))
             decoded = decoded.replace("~", str(HOME))
+
             if str(SECRET) in decoded:
                 return True
         except Exception:
@@ -94,29 +101,25 @@ def check(tool: ToolCall):
 
     # ---------------- WRITE ----------------
     elif tool.tool == "write_file":
+
         if not tool.path:
             return block("Missing path.")
 
         try:
-            p = tool.path.replace("$HOME", str(HOME)).replace("~", str(HOME))
+            target = normalize_path(tool.path)
 
-            target = Path(p)
-
-            if not target.is_absolute():
-                target = OUTBOX / target
-
-            target = target.resolve()
-
-            if target == OUTBOX or OUTBOX in target.parents:
+            try:
+                target.relative_to(OUTBOX)
                 return allow("Write inside outbox permitted.")
-
-            return block("Writes allowed only inside /data/agent/outbox/")
+            except ValueError:
+                return block("Writes allowed only inside /data/agent/outbox/")
 
         except Exception:
             return block("Invalid path.")
 
     # ---------------- HTTP ----------------
     elif tool.tool == "http_request":
+
         if not tool.url:
             return block("Missing URL.")
 
