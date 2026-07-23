@@ -54,10 +54,11 @@ def contains_secret(command: str):
     cmd = command.replace("$HOME", str(HOME))
     cmd = cmd.replace("~", str(HOME))
 
+    # Direct reference
     if str(SECRET) in cmd:
         return True
 
-    # detect relative traversal
+    # Relative traversal
     paths = re.findall(r'(/[^\s;|&]+|(?:\.\.?/)+[^\s;|&]*)', cmd)
 
     for p in paths:
@@ -67,7 +68,7 @@ def contains_secret(command: str):
         except Exception:
             pass
 
-    # detect base64 encoded payloads
+    # Base64 wrapped commands
     for token in re.findall(r"[A-Za-z0-9+/=]{16,}", cmd):
         try:
             decoded = base64.b64decode(token).decode(errors="ignore")
@@ -93,26 +94,26 @@ def check(tool: ToolCall):
 
     # ---------------- WRITE ----------------
     elif tool.tool == "write_file":
-    if not tool.path:
-        return block("Missing path.")
+        if not tool.path:
+            return block("Missing path.")
 
-    try:
-        p = tool.path.replace("$HOME", str(HOME)).replace("~", str(HOME))
+        try:
+            p = tool.path.replace("$HOME", str(HOME)).replace("~", str(HOME))
 
-        target = Path(p)
+            target = Path(p)
 
-        if not target.is_absolute():
-            target = OUTBOX / target
+            if not target.is_absolute():
+                target = OUTBOX / target
 
-        target = target.resolve()
+            target = target.resolve()
 
-        if target == OUTBOX or OUTBOX in target.parents:
-            return allow("Write inside outbox permitted.")
+            if target == OUTBOX or OUTBOX in target.parents:
+                return allow("Write inside outbox permitted.")
 
-        return block("Writes allowed only inside /data/agent/outbox/")
+            return block("Writes allowed only inside /data/agent/outbox/")
 
-    except Exception:
-        return block("Invalid path.")
+        except Exception:
+            return block("Invalid path.")
 
     # ---------------- HTTP ----------------
     elif tool.tool == "http_request":
@@ -126,4 +127,5 @@ def check(tool: ToolCall):
 
         return block("Host not allowed.")
 
+    # ---------------- UNKNOWN ----------------
     return block("Unknown tool.")
